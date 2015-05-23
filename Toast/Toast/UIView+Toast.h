@@ -52,4 +52,6 @@ extern NSString * const CSToastPositionBottom;
 - (void)showToast:(UIView *)toast duration:(NSTimeInterval)interval position:(id)point
       tapCallback:(void(^)(void))tapCallback;
 
+@property (strong, nonatomic) NSMutableArray *toastQueue ;
+
 @end

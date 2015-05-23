@@ -72,6 +72,18 @@ NSString * const CSToastPositionBottom          = @"bottom";
 
 @implementation UIView (Toast)
 
+@dynamic toastQueue ;
+
+- (void)setToastQueue:(NSMutableArray *)toastQueue
+{
+    objc_setAssociatedObject(self, _cmd, toastQueue, OBJC_ASSOCIATION_RETAIN_NONATOMIC) ;
+}
+
+- (NSMutableArray*)toastQueue
+{
+    return objc_getAssociatedObject(self, @selector(setToastQueue:)) ;
+}
+
 #pragma mark - Toast Methods
 
 - (void)makeToast:(NSString *)message {
@@ -104,8 +116,23 @@ NSString * const CSToastPositionBottom          = @"bottom";
 
 
 - (void)showToast:(UIView *)toast duration:(NSTimeInterval)duration position:(id)position {
-    [self showToast:toast duration:duration position:position tapCallback:nil];
     
+    if (!self.toastQueue) {
+        self.toastQueue = [[NSMutableArray alloc] init] ;
+    }
+    
+    @synchronized(self){
+        NSArray *key = [NSArray arrayWithObjects:@"UIView", @"duration", @"position", nil] ;
+        NSArray *value = [NSArray arrayWithObjects:toast, [NSNumber numberWithDouble:duration], position, nil] ;
+        NSDictionary *dic = [NSDictionary dictionaryWithObjects:value forKeys:key] ;
+        
+        if (self.toastQueue.count) {
+            [self.toastQueue addObject:dic] ;
+        }else{
+            [self.toastQueue addObject:dic] ;
+            [self showToast:toast duration:duration position:position tapCallback:nil];
+        }
+    }
 }
 
 
@@ -146,6 +173,19 @@ NSString * const CSToastPositionBottom          = @"bottom";
                          toast.alpha = 0.0;
                      } completion:^(BOOL finished) {
                          [toast removeFromSuperview];
+                         
+                         @synchronized(self){
+                             [self.toastQueue removeObjectAtIndex:0] ;
+                             
+                             if (self.toastQueue.count) {
+                                 NSDictionary *dic = [self.toastQueue objectAtIndex:0] ;
+                                 UIView *toast = [dic objectForKey:@"UIView"] ;
+                                 NSNumber *number = [dic objectForKey:@"duration"] ;
+                                 NSTimeInterval timer = [number doubleValue] ;
+                                 id position = [dic objectForKey:@"position"] ;
+                                 [self showToast:toast duration:timer position:position tapCallback:nil] ;
+                             }
+                         }
                      }];
 }
 
@@ -271,13 +311,13 @@ NSString * const CSToastPositionBottom          = @"bottom";
     wrapperView.layer.cornerRadius = CSToastCornerRadius;
     
     if (CSToastDisplayShadow) {
-        wrapperView.layer.shadowColor = [UIColor blackColor].CGColor;
+        wrapperView.layer.shadowColor = [UIColor colorWithRed:100.0f/255.0f green:1.0f/255.0f blue:37.0f/255.0f alpha:1.0f].CGColor;
         wrapperView.layer.shadowOpacity = CSToastShadowOpacity;
         wrapperView.layer.shadowRadius = CSToastShadowRadius;
         wrapperView.layer.shadowOffset = CSToastShadowOffset;
     }
 
-    wrapperView.backgroundColor = [[UIColor blackColor] colorWithAlphaComponent:CSToastOpacity];
+    wrapperView.backgroundColor = [[UIColor colorWithRed:100.0f/255.0f green:1.0f/255.0f blue:37.0f/255.0f alpha:1.0f] colorWithAlphaComponent:CSToastOpacity];
     
     if(image != nil) {
         imageView = [[UIImageView alloc] initWithImage:image];
